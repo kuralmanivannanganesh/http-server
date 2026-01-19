@@ -22,6 +22,9 @@ def main():
     print(recource)
     if recource == "/":
         conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    elif recource.startswith("/echo"):
+        print(recource.split("/"))
+        conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
     else:
         conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
     conn.close()
