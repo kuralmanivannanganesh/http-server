@@ -1,5 +1,10 @@
 import socket  # noqa: F401
 
+SERVER = "localhost"
+PORT = 4221
+ADDR = (SERVER, PORT)
+
+
 
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -7,8 +12,11 @@ def main():
 
     # TODO: Uncomment the code below to pass the first stage
     #
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    server_socket.accept() # wait for client
+    server_socket = socket.create_server(ADDR, reuse_port=True)
+    conn, addr = server_socket.accept() # wait for client
+    conn.recv(1024)
+    conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    conn.close()
 
 
 if __name__ == "__main__":
