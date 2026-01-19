@@ -14,8 +14,16 @@ def main():
     #
     server_socket = socket.create_server(ADDR, reuse_port=True)
     conn, addr = server_socket.accept() # wait for client
-    conn.recv(1024)
-    conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    message = conn.recv(1024).decode()
+    message_split = message.split("\r\n")
+
+    req_line = message_split[0]
+    recource = req_line.split(" ")[1]
+    print(recource)
+    if recource == "/":
+        conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    else:
+        conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
     conn.close()
 
 
