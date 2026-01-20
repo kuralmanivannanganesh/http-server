@@ -1,4 +1,5 @@
 import socket  # noqa: F401
+import threading
 
 SERVER = "localhost"
 PORT = 4221
@@ -28,14 +29,7 @@ def parse_headers(data):
     return headers
 
 
-def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
-
-    # TODO: Uncomment the code below to pass the first stage
-    #
-    server_socket = socket.create_server(ADDR, reuse_port=True)
-    conn, addr = server_socket.accept() # wait for client
+def handle_request(conn, addr):
     message = conn.recv(MSG_LENGTH).decode()
     print(f"[RAW MESSAGE] : {message}")
     message_split = message.split("\r\n")
@@ -52,19 +46,25 @@ def main():
         send_res_message(conn=conn, msg=data)
     elif recource.startswith("/user-agent"):
         headers = parse_headers(message)
-        print(f"[HEADERS] : {headers}")
         if "user-agent" in headers:
             print("Sending user agent")
             send_res_message(conn=conn, msg=headers.get("user-agent"))
-
-        # for header in message_split:
-        #     if header.startswith("User-Agent"):
-        #         agent = header.split(":")[1].strip()
-        #         send_res_message(conn=conn, msg=agent)
     else:
         conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
     conn.close()
 
+
+def main():
+    # You can use print statements as follows for debugging, they'll be visible when running tests.
+    print("Logs from your program will appear here!")
+
+    # TODO: Uncomment the code below to pass the first stage
+    #
+    server_socket = socket.create_server(ADDR, reuse_port=True)
+    while True:
+        conn, addr = server_socket.accept() # wait for client
+        threading.Thread(target=handle_request, args=(conn, addr)).start()
+        
 
 if __name__ == "__main__":
     main()
