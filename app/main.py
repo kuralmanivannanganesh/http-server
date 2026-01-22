@@ -1,5 +1,7 @@
 import socket  # noqa: F401
 import threading
+import os
+import argparse
 
 SERVER = "localhost"
 PORT = 4221
@@ -14,10 +16,14 @@ Request line.
 Zero or more headers, each ending with a CRLF.
 Optional request body.
 '''
-def send_res_message(conn, msg):
+def send_res_message(conn, msg, content_type = "text/plain"):
     data_len = len(msg)
-    res = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {data_len}\r\n\r\n{msg}"
+    res = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {data_len}\r\n\r\n{msg}"
     conn.sendall(res.encode())
+
+
+def send_res_not_found(conn):
+    conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
 def parse_headers(data):
     headers = {}
@@ -28,8 +34,16 @@ def parse_headers(data):
             headers[k.strip().lower()] = v.strip()
     return headers
 
+def process_file(conn,directory, file_name):
+    if not os.path.exists(f"{directory}{file_name}"):
+        send_res_not_found(conn=conn)
+    else:
+        with open(f"{directory}{file_name}", "r") as f:
+            content = f.read()
+        send_res_message(conn=conn, msg=content,content_type="application/octet-stream") 
 
-def handle_request(conn, addr):
+
+def handle_request(conn, addr, arguments):
     message = conn.recv(MSG_LENGTH).decode()
     print(f"[RAW MESSAGE] : {message}")
     message_split = message.split("\r\n")
@@ -37,33 +51,39 @@ def handle_request(conn, addr):
 
     req_line = message_split[0]
     recource = req_line.split(" ")[1]
-    print(recource)
     if recource == "/":
         conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
     elif recource.startswith("/echo"):
-        print()
         data = recource.split("/")[2]
         send_res_message(conn=conn, msg=data)
     elif recource.startswith("/user-agent"):
         headers = parse_headers(message)
         if "user-agent" in headers:
-            print("Sending user agent")
             send_res_message(conn=conn, msg=headers.get("user-agent"))
+    elif recource.startswith("/files"):
+        file_name = recource.split("/")[2]
+        process_file(conn,arguments.directory, file_name)
+        print(f"[READ FILE] searching for file {file_name}")
     else:
-        conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
+        send_res_not_found(conn=conn)
     conn.close()
 
 
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
     print("Logs from your program will appear here!")
+    parser = argparse.ArgumentParser(description="process arguments")
+    parser.add_argument("--directory",
+                        type=str,
+                        help="Directory path")
+    arguments = parser.parse_args()
 
     # TODO: Uncomment the code below to pass the first stage
     #
     server_socket = socket.create_server(ADDR, reuse_port=True)
     while True:
         conn, addr = server_socket.accept() # wait for client
-        threading.Thread(target=handle_request, args=(conn, addr)).start()
+        threading.Thread(target=handle_request, args=(conn, addr, arguments)).start()
         
 
 if __name__ == "__main__":
