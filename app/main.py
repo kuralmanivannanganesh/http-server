@@ -2,6 +2,7 @@ import socket  # noqa: F401
 import threading
 import os
 import argparse
+from pathlib import Path
 
 SERVER = "localhost"
 PORT = 4221
@@ -25,6 +26,9 @@ def send_res_message(conn, msg, content_type = "text/plain"):
 def send_res_not_found(conn):
     conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
+def send_res_created(conn):
+    conn.sendall(b"HTTP/1.1 201 Created\r\n\r\n")
+
 def parse_headers(data):
     headers = {}
     header_lines = data.split("\r\n")
@@ -42,6 +46,12 @@ def process_file(conn,directory, file_name):
             content = f.read()
         send_res_message(conn=conn, msg=content,content_type="application/octet-stream") 
 
+def write_file(conn,body, directory, file_name):
+    file_path = Path(f"{directory}{file_name}")
+    file_path.touch(exist_ok=True)
+    file_path.write_text(body)
+    send_res_created(conn=conn)
+
 
 def handle_request(conn, addr, arguments):
     message = conn.recv(MSG_LENGTH).decode()
@@ -51,6 +61,8 @@ def handle_request(conn, addr, arguments):
 
     req_line = message_split[0]
     recource = req_line.split(" ")[1]
+    rec_type = req_line.split(" ")[0]
+
     if recource == "/":
         conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
     elif recource.startswith("/echo"):
@@ -62,8 +74,11 @@ def handle_request(conn, addr, arguments):
             send_res_message(conn=conn, msg=headers.get("user-agent"))
     elif recource.startswith("/files"):
         file_name = recource.split("/")[2]
-        process_file(conn,arguments.directory, file_name)
-        print(f"[READ FILE] searching for file {file_name}")
+        if rec_type == "GET":
+            process_file(conn,arguments.directory, file_name)
+        elif rec_type == "POST":
+            body = message_split[-1]
+            write_file(conn, body,arguments.directory, file_name )
     else:
         send_res_not_found(conn=conn)
     conn.close()
